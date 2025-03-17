@@ -4,7 +4,6 @@ import google.generativeai as genai
 
 from browser_use import Agent
 from browser_use.browser.browser import Browser, BrowserConfig
-from browser_use.controller.service import Controller
 
 import asyncio
 import os
@@ -12,15 +11,24 @@ from pydantic import SecretStr
 
 from  models.similiar_app import similiar_app
 
-browser = Browser(
-	config=BrowserConfig(
-		headless=True,
-	)
-)
+from fastapi import FastAPI
+import uvicorn
 
-controller = Controller()
 
-async def search_similier(prompt: str):
+app = FastAPI()
+
+@app.get("/")
+async def hello():
+    return {"message": "Hello World"}
+
+@app.post("/search")
+async def search_similier_app(prompt: str):
+    browser = Browser(
+        config=BrowserConfig(
+            headless=True,
+        )
+    )
+
     # 環境変数の読み込み
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
@@ -36,7 +44,7 @@ async def search_similier(prompt: str):
     history = await agent.run()
     result = history.final_result()
     
-    # resultがstr型の場合、アプリ情報を抽出して整形
+    # アプリ情報を抽出して整形
     if result and isinstance(result, str):
         # Geminiを使ってJSONデータを抽出
         genai.configure(api_key=api_key)
@@ -73,9 +81,5 @@ async def search_similier(prompt: str):
             print("JSONデータが見つかりませんでした")
             return []
 
-# 条件を渡して実行
-prompt = "GPS 散歩した経路 地図にプロット 写真やテキストを埋め込める アプリ アプリ名とダウンロードURLを「AppName」と「download_URL」の2つのプロパティでjsonに格納して返して。複数あれば配列の形式で返して"
-
-search_result = asyncio.run(search_similier(prompt))
-print("抽出されたアプリ情報:")
-print(search_result)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
