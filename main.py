@@ -5,17 +5,12 @@ import google.generativeai as genai
 from browser_use import Agent
 from browser_use.browser.browser import Browser, BrowserConfig
 from browser_use.controller.service import Controller
-from browser_use.agent.views import ActionResult
-
-from pydantic import BaseModel
 
 import asyncio
 import os
 from pydantic import SecretStr
 
-class similiar_app(BaseModel):
-    AppName: str
-    download_URL: str
+from  models.similiar_app import similiar_app
 
 browser = Browser(
 	config=BrowserConfig(
@@ -31,6 +26,7 @@ async def search_similier(prompt: str):
     if not api_key:
         raise ValueError('GEMINI_API_KEY is not set')
 
+    # browser-useで似ているアプリを検索
     agent = Agent(
         task=prompt,
         llm = ChatGoogleGenerativeAI(model='gemini-2.0-flash-exp', api_key=(SecretStr(api_key))),
