@@ -15,8 +15,17 @@ from fastapi import FastAPI
 import uvicorn
 import re
 import json
+from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,   # 追記により追加
+    allow_methods=["*"],      # 追記により追加
+    allow_headers=["*"]       # 追記により追加
+)
 
 @app.get("/")
 async def hello():
@@ -110,7 +119,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
 import requests
 
 # # 特定の単語を入力とした時に、類義語を検索する関数
-# @app.post("/search")
+# @app.post("/")
 # def SearchSimilarWords(word):
 #     wordsapi_response = 
     
