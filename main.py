@@ -7,6 +7,7 @@ from browser_use.browser.browser import Browser, BrowserConfig
 
 import os
 from pydantic import SecretStr
+import requests
 
 from models.similar_app import Similar_app, SimilarAppList
 from models.prompt import Prompt
@@ -173,35 +174,36 @@ async def search_synonyms_words(word: search_synonyms_query):
     important_words = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
 
     # 上位5つの単語（または単語が3つ未満の場合はすべての単語）を取得
-    top_words = [word for word in important_words[:3]]
+    top_words = [word[0] for word in important_words[:3]]
     
     weblio_url = "https://www.weblio.jp/content/"
+
+    related_words_list = []
     
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch()
-        context = await browser.new_context()
+    for current_word in top_words:
         
-        # ページを開く
-        page = await context.new_page()
-
-        for current_word in top_words:
-            # 指定したURLに遷移
-            await page.goto(weblio_url + current_word)
-
-            # javascriptによってページが変わるまで待機
-            await asyncio.sleep(3)
-
-            content = await page.content()
-
-            # BeautifulSoupでHTMLを解析
-            soup = BeautifulSoup(content, 'html.parser')
-            
-            
-            name = soup.find_all("div", class_="sideGrB")
-            
+        res = requests.get(weblio_url + current_word)
+        soup = BeautifulSoup(res.text, 'html.parser')
     
-    
-    
-    
+        Related_words = soup.find_all("div", class_="sideGrB")
+
+        # 関連単語を抽出する処理を追加
+
+        # 取得したHTMLから関連単語を抽出
+        if Related_words:
+            for div in Related_words:
+                # sideRWordsWrpクラスの要素を取得
+                word_wrps = div.find_all("div", class_="sideRWordsWrp")
+                
+                # 関連語の上位３位を取得
+                for idx in range(3):
+                    # 単語を含むリンク要素を取得
+                    word_link = word_wrps[idx].find("a")
+                    if word_link:
+                        word_text = word_link.get_text()
+                        related_words_list.append(word_text)
+    return related_words_list
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
