@@ -36,7 +36,12 @@ async def search_similier_app(prompt: str):
 
     # browser-useで似ているアプリを検索
     agent = Agent(
-        task=prompt,
+        task=f"""
+            以下のアイデアから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください：
+            
+            アイデア：
+            {result}
+            """,
         llm = ChatGoogleGenerativeAI(model='gemini-2.0-flash-exp', api_key=(SecretStr(api_key))),
         browser=browser,
     )
@@ -51,7 +56,7 @@ async def search_similier_app(prompt: str):
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(
             f"""
-            以下のテキストから、アプリ名とダウンロードURLを抽出し、JSONに整形してください：
+            以下のテキストから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください：
             
             テキスト：
             {result}
