@@ -128,8 +128,8 @@ from playwright.async_api import async_playwright
 
 # 特定の単語を入力とした時に、類義語を検索する関数
 @app.post("/synonyms")
-async def search_synonyms_words(word: search_synonyms_query):
-    query = "歩いた経路を地図にプロットし、写真とテキストを埋め込める地図アプリ"
+async def search_synonyms_words(prompt: Prompt):
+    query = prompt.prompt
 
     tokenizer = Tokenizer()
 
@@ -186,8 +186,6 @@ async def search_synonyms_words(word: search_synonyms_query):
         soup = BeautifulSoup(res.text, 'html.parser')
     
         Related_words = soup.find_all("div", class_="sideGrB")
-
-        # 関連単語を抽出する処理を追加
 
         # 取得したHTMLから関連単語を抽出
         if Related_words:
