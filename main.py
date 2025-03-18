@@ -11,7 +11,6 @@ import requests
 
 from models.similar_app import Similar_app, SimilarAppList
 from models.prompt import Prompt
-from models.search_synonyms_query import search_synonyms_query
 
 from fastapi import FastAPI
 import uvicorn
@@ -173,7 +172,7 @@ async def search_synonyms_words(prompt: Prompt):
     # 重要度の高い順にソート
     important_words = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
 
-    # 上位5つの単語（または単語が3つ未満の場合はすべての単語）を取得
+    # 上位3つの単語（または単語が3つ未満の場合はすべての単語）を取得
     top_words = [word[0] for word in important_words[:3]]
     
     weblio_url = "https://www.weblio.jp/content/"
