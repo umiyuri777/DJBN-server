@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from models.similar_app import Similar_app, SimilarAppList
 from models.prompt import Prompt
+from models.search_synonyms_query import search_synonyms_query
 
 from fastapi import FastAPI
 import uvicorn
@@ -75,7 +76,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
         structured_llm = llm.with_structured_output(SimilarAppList)
         response = structured_llm.invoke(
                 f"""
-                以下のテキストから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください 型定義を必ず守ること：
+                以下のテキストから、アプリ名とダウンロードURLを抽出し、JSONに整形してください。同じアプリは含めないでください。型定義を必ず守ること：
                 
                 テキスト：
                 {result}
@@ -116,15 +117,88 @@ async def search_similer_app(search_similer_app_request: Prompt):
         return []
     
 
-import requests
 
-# # 特定の単語を入力とした時に、類義語を検索する関数
-# @app.post("/")
-# def SearchSimilarWords(word):
-#     wordsapi_response = 
+from janome.tokenizer import Tokenizer
+from janome.tokenizer import Tokenizer
+from collections import Counter
+import asyncio
+from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
+
+# 特定の単語を入力とした時に、類義語を検索する関数
+@app.post("/synonyms")
+async def search_synonyms_words(word: search_synonyms_query):
+    query = "歩いた経路を地図にプロットし、写真とテキストを埋め込める地図アプリ"
+
+    tokenizer = Tokenizer()
+
+    # 単語の重要度を計算するための情報を集める
+    words = []
+    word_info = []
+
+    for token in tokenizer.tokenize(query):
+        word_surface = token.surface
+        word_pos = token.part_of_speech.split(',')[0]
+        word_pos_detail = token.part_of_speech.split(',')[1] if len(token.part_of_speech.split(',')) > 1 else ""
+        
+        # 名詞と動詞のみ抽出
+        if word_pos in ["名詞", "動詞"]:
+            # 一般的でない名詞や動詞を重視
+            weight = 1.0
+            
+            # さらに詳細な品詞情報で重み付け
+            if word_pos == "名詞":
+                if word_pos_detail in ["固有名詞", "一般"]:
+                    weight = 1.5
+                if len(word_surface) >= 2:  # 長い単語はより重要な可能性が高い
+                    weight += 0.5
+            
+            # 動詞は名詞より少し重要度を低く
+            if word_pos == "動詞":
+                weight = 0.8
+            
+            words.append(word_surface)
+            word_info.append((word_surface, weight))
+
+    # 単語の出現回数をカウント
+    word_counts = Counter(words)
+
+    # 重要度スコアを計算
+    word_scores = {}
+    for word, weight in word_info:
+        # スコア = 出現回数 × 重み
+        word_scores[word] = word_counts[word] * weight
+
+    # 重要度の高い順にソート
+    important_words = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
+
+    # 上位5つの単語（または単語が3つ未満の場合はすべての単語）を取得
+    top_words = [word for word in important_words[:3]]
     
+    weblio_url = "https://www.weblio.jp/content/"
     
-    
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        context = await browser.new_context()
+        
+        # ページを開く
+        page = await context.new_page()
+
+        for current_word in top_words:
+            # 指定したURLに遷移
+            await page.goto(weblio_url + current_word)
+
+            # javascriptによってページが変わるまで待機
+            await asyncio.sleep(3)
+
+            content = await page.content()
+
+            # BeautifulSoupでHTMLを解析
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            
+            name = soup.find_all("div", class_="sideGrB")
+            
     
     
     
