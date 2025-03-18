@@ -1,19 +1,19 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-import google.generativeai as genai
+from langchain_openai import ChatOpenAI
 
 from browser_use import Agent
 from browser_use.browser.browser import Browser, BrowserConfig
 
-import asyncio
 import os
 from pydantic import SecretStr
 
-from  models.similiar_app import similiar_app
+from  models.similar_app import similar_app, SimilarAppList
 
 from fastapi import FastAPI
 import uvicorn
-
+import re
+import json
 
 app = FastAPI()
 
@@ -22,7 +22,7 @@ async def hello():
     return {"message": "Hello World"}
 
 @app.post("/search")
-async def search_similier_app(prompt: str):
+async def search_similer_app(prompt: str):
     browser = Browser(
         config=BrowserConfig(
             headless=True,
@@ -30,19 +30,20 @@ async def search_similier_app(prompt: str):
     )
 
     # 環境変数の読み込み
-    api_key = os.getenv('GEMINI_API_KEY')
+    api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
-        raise ValueError('GEMINI_API_KEY is not set')
+        raise ValueError('OPENAI_API_KEY is not set')
 
     # browser-useで似ているアプリを検索
     agent = Agent(
         task=f"""
-            以下のアイデアから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください：
+            以下のアイデアから、似ているアプリ名とダウンロードURLをJSONに整形してください：
             
             アイデア：
-            {result}
+            {prompt}
             """,
-        llm = ChatGoogleGenerativeAI(model='gemini-2.0-flash-exp', api_key=(SecretStr(api_key))),
+        llm = ChatOpenAI(model="gpt-4o", api_key=(SecretStr(api_key))),
+        # llm = ChatGoogleGenerativeAI(model='gemini-2.0-flash-exp', api_key=(SecretStr(api_key))),
         browser=browser,
     )
     
@@ -50,41 +51,58 @@ async def search_similier_app(prompt: str):
     result = history.final_result()
     
     # アプリ情報を抽出して整形
-    if result and isinstance(result, str):
-        # Geminiを使ってJSONデータを抽出
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(
-            f"""
-            以下のテキストから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください：
-            
-            テキスト：
-            {result}
-            """,
-            generation_config={
-                'response_mime_type': 'application/json',
-                'response_schema': list[similiar_app],
-            },
+    if result:
+        # 環境変数の読み込み
+        gemini_api_key = os.getenv('GEMINI_API_KEY')
+        if not gemini_api_key:
+            raise ValueError('GEMINI_API_KEY is not set')
+        
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash", 
+            api_key=SecretStr(gemini_api_key)
         )
+        structured_llm = llm.with_structured_output(SimilarAppList)
+        response = structured_llm.invoke(
+                f"""
+                以下のテキストから、似ているアプリ名とダウンロードURLを抽出し、JSONに整形してください 型定義を必ず守ること：
+                
+                テキスト：
+                {result}
+                
+                JSONは以下のような形式で返してください：
+                {{
+                    "apps": [
+                        {{"name": "アプリ名1", "url": "URL1"}},
+                        {{"name": "アプリ名2", "url": "URL2"}}
+                    ]
+                }}
+                """
+            )
         
-        # JSONの部分を抽出（余分なテキストがある場合に対応）
-        import re
-        import json
-        
-        json_match = re.search(r'\[.*\]', response.text.strip(), re.DOTALL)
-        if json_match:
+        # 構造化データから直接リストを取得
+        try:
+            validated_apps = response.apps
+            return [app.model_dump() for app in validated_apps]
+        except Exception as e:
+            print(f"データの処理に失敗しました: {e}")
+            
+            # フォールバック処理：テキスト応答から手動でJSONを抽出
             try:
-                json_str = json_match.group(0)
-                apps_data = json.loads(json_str)
-                # Pydanticモデルでバリデーション
-                validated_apps = [similiar_app(**app) for app in apps_data]
-                return [app.model_dump() for app in validated_apps]
-            except (json.JSONDecodeError, ValueError) as e:
-                print(f"JSONの解析に失敗しました: {e}")
-                return []
-        else:
-            print("JSONデータが見つかりませんでした")
+                # 応答がテキスト形式だった場合
+                response_text = str(response)
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    data = json.loads(json_str)
+                    if "apps" in data and isinstance(data["apps"], list):
+                        validated_apps = [similar_app(**app) for app in data["apps"]]
+                        return [app.model_dump() for app in validated_apps]
+            except Exception as nested_e:
+                print(f"フォールバック処理に失敗しました: {nested_e}")
+            
             return []
+    else:
+        return []
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")

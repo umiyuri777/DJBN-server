@@ -1,0 +1,14 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8080
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    tty: true
