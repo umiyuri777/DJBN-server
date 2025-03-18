@@ -8,7 +8,8 @@ from browser_use.browser.browser import Browser, BrowserConfig
 import os
 from pydantic import SecretStr
 
-from  models.similar_app import similar_app, SimilarAppList
+from models.similar_app import Similar_app, SimilarAppList
+from models.prompt import Prompt
 
 from fastapi import FastAPI
 import uvicorn
@@ -22,7 +23,8 @@ async def hello():
     return {"message": "Hello World"}
 
 @app.post("/search")
-async def search_similer_app(prompt: str):
+async def search_similer_app(search_similer_app_request: Prompt):
+    prompt = search_similer_app_request.prompt
     browser = Browser(
         config=BrowserConfig(
             headless=True,
@@ -95,7 +97,7 @@ async def search_similer_app(prompt: str):
                     json_str = json_match.group(0)
                     data = json.loads(json_str)
                     if "apps" in data and isinstance(data["apps"], list):
-                        validated_apps = [similar_app(**app) for app in data["apps"]]
+                        validated_apps = [Similar_app(**app) for app in data["apps"]]
                         return [app.model_dump() for app in validated_apps]
             except Exception as nested_e:
                 print(f"フォールバック処理に失敗しました: {nested_e}")
@@ -103,6 +105,20 @@ async def search_similer_app(prompt: str):
             return []
     else:
         return []
+    
 
+import requests
+
+# # 特定の単語を入力とした時に、類義語を検索する関数
+# @app.post("/search")
+# def SearchSimilarWords(word):
+#     wordsapi_response = 
+    
+    
+    
+    
+    
+    
+    
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
