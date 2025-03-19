@@ -121,9 +121,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
 from janome.tokenizer import Tokenizer
 from janome.tokenizer import Tokenizer
 from collections import Counter
-import asyncio
 from bs4 import BeautifulSoup
-from playwright.async_api import async_playwright
 
 # 特定の単語を入力とした時に、類義語を検索する関数
 @app.post("/synonyms")
