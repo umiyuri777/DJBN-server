@@ -55,7 +55,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
     # browser-useで似ているアプリを検索
     agent = Agent(
         task=f"""
-            以下のアイデアから、似ているアプリ名とダウンロードURLをJSONに整形してください：
+            以下のアイデアから、似ているアプリ名とダウンロードURLをJSONに整形してください. reCAPTCHAが出たら https://captcha.com/demos/features/captcha-demo.aspx にアクセスしてキャプチャを解いてください。：
             
             アイデア：
             {prompt}
@@ -73,7 +73,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
             print(f"検索結果が不十分: {result}")
             return []
         
-        
+
         # アプリ情報を抽出して整形
         if result:
             # 環境変数の読み込み
