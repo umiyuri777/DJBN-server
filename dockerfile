@@ -16,7 +16,7 @@ RUN playwright install-deps
 COPY . .
 
 # ポートを公開
-EXPOSE 8080
+EXPOSE 10000
 
 # スクリプトを実行するコマンドを指定
 CMD ["python", "main.py"]
