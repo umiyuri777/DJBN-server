@@ -64,60 +64,68 @@ async def search_similer_app(search_similer_app_request: Prompt):
         browser=browser,
     )
     
-    history = await agent.run()
-    result = history.final_result()
-    
-    # アプリ情報を抽出して整形
-    if result:
-        # 環境変数の読み込み
-        gemini_api_key = os.getenv('GEMINI_API_KEY')
-        if not gemini_api_key:
-            raise ValueError('GEMINI_API_KEY is not set')
+    try:
+        history = await agent.run(max_steps=10)
+        result = history.final_result()
         
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash", 
-            api_key=SecretStr(gemini_api_key)
-        )
-        structured_llm = llm.with_structured_output(SimilarAppList)
-        response = structured_llm.invoke(
-                f"""
-                以下のテキストから、アプリ名とダウンロードURLを抽出し、JSONに整形してください。同じアプリは含めないでください。型定義を必ず守ること：
-                
-                テキスト：
-                {result}
-                
-                JSONは以下のような形式で返してください：
-                {{
-                    "apps": [
-                        {{"name": "アプリ名1", "url": "URL1"}},
-                        {{"name": "アプリ名2", "url": "URL2"}}
-                    ]
-                }}
-                """
-            )
-        
-        # 構造化データから直接リストを取得
-        try:
-            validated_apps = response.apps
-            return [app.model_dump() for app in validated_apps]
-        except Exception as e:
-            print(f"データの処理に失敗しました: {e}")
-            
-            # フォールバック処理：テキスト応答から手動でJSONを抽出
-            try:
-                response_text = str(response)
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                    data = json.loads(json_str)
-                    if "apps" in data and isinstance(data["apps"], list):
-                        validated_apps = [Similar_app(**app) for app in data["apps"]]
-                        return [app.model_dump() for app in validated_apps]
-            except Exception as nested_e:
-                print(f"フォールバック処理に失敗しました: {nested_e}")
-            
+        # エージェントが成功しなかった場合のチェック
+        if not result or "Task not fully accomplished" in result or "task not fully accomplished" in result.lower():
+            print(f"検索結果が不十分: {result}")
             return []
-    else:
+        
+        
+        # アプリ情報を抽出して整形
+        if result:
+            # 環境変数の読み込み
+            gemini_api_key = os.getenv('GEMINI_API_KEY')
+            if not gemini_api_key:
+                raise ValueError('GEMINI_API_KEY is not set')
+        
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.0-flash", 
+                api_key=SecretStr(gemini_api_key)
+            )
+            structured_llm = llm.with_structured_output(SimilarAppList)
+            response = structured_llm.invoke(
+                    f"""
+                    以下のテキストから、アプリ名とダウンロードURLを抽出し、JSONに整形してください。同じアプリは含めないでください。型定義を必ず守ること：
+                    
+                    テキスト：
+                    {result}
+                    
+                    JSONは以下のような形式で返してください：
+                    {{
+                        "apps": [
+                            {{"name": "アプリ名1", "url": "URL1"}},
+                            {{"name": "アプリ名2", "url": "URL2"}}
+                        ]
+                    }}
+                    """
+                )
+            
+            # 構造化データから直接リストを取得
+            try:
+                validated_apps = response.apps
+                return [app.model_dump() for app in validated_apps]
+            except Exception as e:
+                print(f"データの処理に失敗しました: {e}")
+                
+                # フォールバック処理：テキスト応答から手動でJSONを抽出
+                try:
+                    response_text = str(response)
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        json_str = json_match.group(0)
+                        data = json.loads(json_str)
+                        if "apps" in data and isinstance(data["apps"], list):
+                            validated_apps = [Similar_app(**app) for app in data["apps"]]
+                            return [app.model_dump() for app in validated_apps]
+                except Exception as nested_e:
+                    print(f"フォールバック処理に失敗しました: {nested_e}")
+                
+                return []
+    except Exception as e:
+        print(f"エージェントの実行に失敗しました: {e}")
         return []
 
 
