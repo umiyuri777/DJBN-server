@@ -173,7 +173,7 @@ async def search_synonyms_words(prompt: Prompt):
     important_words = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
 
     # 上位3つの単語（または単語が3つ未満の場合はすべての単語）を取得
-    top_words = [word[0] for word in important_words[:3]]
+    top_words = [word[0] for word in important_words[:2]]
     
     weblio_url = "https://www.weblio.jp/content/"
 
