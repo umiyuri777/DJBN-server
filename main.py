@@ -18,6 +18,11 @@ import re
 import json
 from starlette.middleware.cors import CORSMiddleware
 
+from janome.tokenizer import Tokenizer
+from janome.tokenizer import Tokenizer
+from collections import Counter
+from bs4 import BeautifulSoup
+
 app = FastAPI()
 
 app.add_middleware(
@@ -32,7 +37,7 @@ app.add_middleware(
 async def hello():
     return {"message": "Hello World"}
 
-# browser-useをつかって
+# browser-useをつかって似ているアプリのアプリ名とURLを返す関数
 @app.post("/search")
 async def search_similer_app(search_similer_app_request: Prompt):
     prompt = search_similer_app_request.prompt
@@ -114,13 +119,7 @@ async def search_similer_app(search_similer_app_request: Prompt):
             return []
     else:
         return []
-    
 
-
-from janome.tokenizer import Tokenizer
-from janome.tokenizer import Tokenizer
-from collections import Counter
-from bs4 import BeautifulSoup
 
 # 特定の単語を入力とした時に、類義語を検索する関数
 @app.post("/synonyms")
@@ -132,7 +131,8 @@ async def search_synonyms_words(prompt: Prompt):
     # 単語の重要度を計算するための情報を集める
     words = []
     word_info = []
-
+    
+    # 形態素解析で単語ごとに分割
     for token in tokenizer.tokenize(query):
         word_surface = token.surface
         word_pos = token.part_of_speech.split(',')[0]
@@ -169,15 +169,15 @@ async def search_synonyms_words(prompt: Prompt):
     # 重要度の高い順にソート
     important_words = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
 
-    # 上位3つの単語（または単語が3つ未満の場合はすべての単語）を取得
+    # 上位3つの単語（または単語がつ未満の場合はすべての単語）を取得
     top_words = [word[0] for word in important_words[:2]]
     
     weblio_url = "https://www.weblio.jp/content/"
 
     related_words_list = []
     
+    # 関連ワードをweblioから取得
     for current_word in top_words:
-        
         res = requests.get(weblio_url + current_word)
         soup = BeautifulSoup(res.text, 'html.parser')
     
@@ -186,17 +186,22 @@ async def search_synonyms_words(prompt: Prompt):
         # 取得したHTMLから関連単語を抽出
         if Related_words:
             for div in Related_words:
-                # sideRWordsWrpクラスの要素を取得
                 word_wrps = div.find_all("div", class_="sideRWordsWrp")
                 
                 # 関連語の上位３位を取得
                 for idx in range(3):
-                    # 単語を含むリンク要素を取得
                     word_link = word_wrps[idx].find("a")
                     if word_link:
                         word_text = word_link.get_text()
                         related_words_list.append(word_text)
-    return related_words_list
+    
+    important_words_top3 = [word[0] for word in important_words[:3]]
+    
+    response = {
+        "important_words": important_words_top3,
+        "related_words": related_words_list
+    }
+    return response
 
 
 if __name__ == "__main__":
