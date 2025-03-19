@@ -23,15 +23,16 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,   # 追記により追加
-    allow_methods=["*"],      # 追記により追加
-    allow_headers=["*"]       # 追記により追加
+    allow_credentials=True,
+    allow_methods=["*"],   
+    allow_headers=["*"]    
 )
 
 @app.get("/")
 async def hello():
     return {"message": "Hello World"}
 
+# browser-useをつかって
 @app.post("/search")
 async def search_similer_app(search_similer_app_request: Prompt):
     prompt = search_similer_app_request.prompt
@@ -55,7 +56,6 @@ async def search_similer_app(search_similer_app_request: Prompt):
             {prompt}
             """,
         llm = ChatOpenAI(model="gpt-4o", api_key=(SecretStr(api_key))),
-        # llm = ChatGoogleGenerativeAI(model='gemini-2.0-flash-exp', api_key=(SecretStr(api_key))),
         browser=browser,
     )
     
@@ -100,7 +100,6 @@ async def search_similer_app(search_similer_app_request: Prompt):
             
             # フォールバック処理：テキスト応答から手動でJSONを抽出
             try:
-                # 応答がテキスト形式だった場合
                 response_text = str(response)
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
